@@ -1,188 +1,190 @@
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
+const availabilitySchedule = require('./availabilitySchedule.generated');
+const doctors = require('./Doctor List.json')
 
 // Middleware
 app.use(express.json());
 
 // Sample doctors data
-const doctors = [
-    {
-        "doctorName": "Dr. Vanessa Brekke",
-        "doctorID": "D7619",
-        "gender": "Female",
-        "slmcId": "95810",
-        "isTele": 0,
-        "hospitals": [
-            {
-                "hospitalId": "H18",
-                "hospital": "Ninewells Hospital",
-                "address": {
-                    "city": "Kandy"
-                }
-            }
-        ],
-        "specializations": [
-            {
-                "specialization": "Pediatrics",
-                "specializationId": "SPuS6"
-            }
-        ]
-    },
-    {
-        "doctorName": "Dr. Cecelia Dare",
-        "doctorID": "D7924",
-        "gender": "Female",
-        "slmcId": "92672",
-        "isTele": 0,
-        "hospitals": [
-            {
-                "hospitalId": "H77",
-                "hospital": "Ninewells Hospital",
-                "address": {
-                    "city": "Colombo"
-                }
-            }
-        ],
-        "specializations": [
-            {
-                "specialization": "General Physician",
-                "specializationId": "SPUaU"
-            }
-        ]
-    },
-    {
-        "doctorName": "Dr. Newton Stamm",
-        "doctorID": "D5399",
-        "gender": "Female",
-        "slmcId": "15684",
-        "isTele": 1,
-        "hospitals": [
-            {
-                "hospitalId": "H57",
-                "hospital": "Ninewells Hospital",
-                "address": {
-                    "city": "Jaffna"
-                }
-            }
-        ],
-        "specializations": [
-            {
-                "specialization": "Pediatrics",
-                "specializationId": "SPyLP"
-            }
-        ]
-    },
-    {
-        "doctorName": "Dr. Osvaldo Leannon",
-        "doctorID": "D1952",
-        "gender": "Male",
-        "slmcId": "66923",
-        "isTele": 0,
-        "hospitals": [
-            {
-                "hospitalId": "H15",
-                "hospital": "Ninewells Hospital",
-                "address": {
-                    "city": "Jaffna"
-                }
-            }
-        ],
-        "specializations": [
-            {
-                "specialization": "Cardiology",
-                "specializationId": "SPtUP"
-            }
-        ]
-    },
-    {
-        "doctorName": "Dr. Gloria Hackett",
-        "doctorID": "D6771",
-        "gender": "Male",
-        "slmcId": "61003",
-        "isTele": 1,
-        "hospitals": [
-            {
-                "hospitalId": "H86",
-                "hospital": "Ninewells Hospital",
-                "address": {
-                    "city": "Kandy"
-                }
-            }
-        ],
-        "specializations": [
-            {
-                "specialization": "Oncology",
-                "specializationId": "SPmuA"
-            }
-        ]
-    }
-];
+// const doctors = [
+//     {
+//         "doctorName": "Dr. Vanessa Brekke",
+//         "doctorID": "D7619",
+//         "gender": "Female",
+//         "slmcId": "95810",
+//         "isTele": 0,
+//         "hospitals": [
+//             {
+//                 "hospitalId": "H18",
+//                 "hospital": "Ninewells Hospital",
+//                 "address": {
+//                     "city": "Kandy"
+//                 }
+//             }
+//         ],
+//         "specializations": [
+//             {
+//                 "specialization": "Pediatrics",
+//                 "specializationId": "SPuS6"
+//             }
+//         ]
+//     },
+//     {
+//         "doctorName": "Dr. Cecelia Dare",
+//         "doctorID": "D7924",
+//         "gender": "Female",
+//         "slmcId": "92672",
+//         "isTele": 0,
+//         "hospitals": [
+//             {
+//                 "hospitalId": "H77",
+//                 "hospital": "Ninewells Hospital",
+//                 "address": {
+//                     "city": "Colombo"
+//                 }
+//             }
+//         ],
+//         "specializations": [
+//             {
+//                 "specialization": "General Physician",
+//                 "specializationId": "SPUaU"
+//             }
+//         ]
+//     },
+//     {
+//         "doctorName": "Dr. Newton Stamm",
+//         "doctorID": "D5399",
+//         "gender": "Female",
+//         "slmcId": "15684",
+//         "isTele": 1,
+//         "hospitals": [
+//             {
+//                 "hospitalId": "H57",
+//                 "hospital": "Ninewells Hospital",
+//                 "address": {
+//                     "city": "Jaffna"
+//                 }
+//             }
+//         ],
+//         "specializations": [
+//             {
+//                 "specialization": "Pediatrics",
+//                 "specializationId": "SPyLP"
+//             }
+//         ]
+//     },
+//     {
+//         "doctorName": "Dr. Osvaldo Leannon",
+//         "doctorID": "D1952",
+//         "gender": "Male",
+//         "slmcId": "66923",
+//         "isTele": 0,
+//         "hospitals": [
+//             {
+//                 "hospitalId": "H15",
+//                 "hospital": "Ninewells Hospital",
+//                 "address": {
+//                     "city": "Jaffna"
+//                 }
+//             }
+//         ],
+//         "specializations": [
+//             {
+//                 "specialization": "Cardiology",
+//                 "specializationId": "SPtUP"
+//             }
+//         ]
+//     },
+//     {
+//         "doctorName": "Dr. Gloria Hackett",
+//         "doctorID": "D6771",
+//         "gender": "Male",
+//         "slmcId": "61003",
+//         "isTele": 1,
+//         "hospitals": [
+//             {
+//                 "hospitalId": "H86",
+//                 "hospital": "Ninewells Hospital",
+//                 "address": {
+//                     "city": "Kandy"
+//                 }
+//             }
+//         ],
+//         "specializations": [
+//             {
+//                 "specialization": "Oncology",
+//                 "specializationId": "SPmuA"
+//             }
+//         ]
+//     }
+// ];
 
 // Sample availability data
 // In a real application, this would come from a database
-const availabilitySchedule = {
-    "D7619": { // Dr. Vanessa Brekke - Pediatrics
-        workingDays: [1, 2, 3, 4, 5], // Monday to Friday
-        timeSlots: [
-            { start: "09:00", end: "09:30", duration: 30 },
-            { start: "09:30", end: "10:00", duration: 30 },
-            { start: "10:00", end: "10:30", duration: 30 },
-            { start: "10:30", end: "11:00", duration: 30 },
-            { start: "14:00", end: "14:30", duration: 30 },
-            { start: "14:30", end: "15:00", duration: 30 },
-            { start: "15:00", end: "15:30", duration: 30 }
-        ]
-    },
-    "D7924": { // Dr. Cecelia Dare - Cardiology
-        workingDays: [1, 2, 3, 4, 5, 6], // Monday to Saturday
-        timeSlots: [
-            { start: "08:00", end: "08:30", duration: 30 },
-            { start: "08:30", end: "09:00", duration: 30 },
-            { start: "09:00", end: "09:30", duration: 30 },
-            { start: "09:30", end: "10:00", duration: 30 },
-            { start: "10:00", end: "10:30", duration: 30 },
-            { start: "16:00", end: "16:30", duration: 30 },
-            { start: "16:30", end: "17:00", duration: 30 },
-            { start: "17:00", end: "17:30", duration: 30 }
-        ]
-    },
-    "D5399": { // Dr. Newton Stamm - Pediatrics (Tele)
-        workingDays: [1, 2, 3, 4, 5, 6, 0], // All days
-        timeSlots: [
-            { start: "10:00", end: "10:30", duration: 30 },
-            { start: "10:30", end: "11:00", duration: 30 },
-            { start: "11:00", end: "11:30", duration: 30 },
-            { start: "11:30", end: "12:00", duration: 30 },
-            { start: "15:00", end: "15:30", duration: 30 },
-            { start: "15:30", end: "16:00", duration: 30 },
-            { start: "16:00", end: "16:30", duration: 30 },
-            { start: "16:30", end: "17:00", duration: 30 }
-        ]
-    },
-    "D1952": { // Dr. Osvaldo Leannon - Cardiology
-        workingDays: [2, 4, 6], // Tuesday, Thursday, Saturday
-        timeSlots: [
-            { start: "09:00", end: "09:45", duration: 45 },
-            { start: "09:45", end: "10:30", duration: 45 },
-            { start: "10:30", end: "11:15", duration: 45 },
-            { start: "11:15", end: "12:00", duration: 45 },
-            { start: "14:00", end: "14:45", duration: 45 },
-            { start: "14:45", end: "15:30", duration: 45 }
-        ]
-    },
-    "D6771": { // Dr. Gloria Hackett - Oncology (Tele)
-        workingDays: [1, 3, 5], // Monday, Wednesday, Friday
-        timeSlots: [
-            { start: "08:00", end: "09:00", duration: 60 },
-            { start: "09:00", end: "10:00", duration: 60 },
-            { start: "10:00", end: "11:00", duration: 60 },
-            { start: "13:00", end: "14:00", duration: 60 },
-            { start: "14:00", end: "15:00", duration: 60 },
-            { start: "15:00", end: "16:00", duration: 60 }
-        ]
-    }
-};
+// const availabilitySchedule = {
+//     "D7619": { // Dr. Vanessa Brekke - Pediatrics
+//         workingDays: [1, 2, 3, 4, 5], // Monday to Friday
+//         timeSlots: [
+//             { start: "09:00", end: "09:30", duration: 30 },
+//             { start: "09:30", end: "10:00", duration: 30 },
+//             { start: "10:00", end: "10:30", duration: 30 },
+//             { start: "10:30", end: "11:00", duration: 30 },
+//             { start: "14:00", end: "14:30", duration: 30 },
+//             { start: "14:30", end: "15:00", duration: 30 },
+//             { start: "15:00", end: "15:30", duration: 30 }
+//         ]
+//     },
+//     "D7924": { // Dr. Cecelia Dare - Cardiology
+//         workingDays: [1, 2, 3, 4, 5, 6], // Monday to Saturday
+//         timeSlots: [
+//             { start: "08:00", end: "08:30", duration: 30 },
+//             { start: "08:30", end: "09:00", duration: 30 },
+//             { start: "09:00", end: "09:30", duration: 30 },
+//             { start: "09:30", end: "10:00", duration: 30 },
+//             { start: "10:00", end: "10:30", duration: 30 },
+//             { start: "16:00", end: "16:30", duration: 30 },
+//             { start: "16:30", end: "17:00", duration: 30 },
+//             { start: "17:00", end: "17:30", duration: 30 }
+//         ]
+//     },
+//     "D5399": { // Dr. Newton Stamm - Pediatrics (Tele)
+//         workingDays: [1, 2, 3, 4, 5, 6, 0], // All days
+//         timeSlots: [
+//             { start: "10:00", end: "10:30", duration: 30 },
+//             { start: "10:30", end: "11:00", duration: 30 },
+//             { start: "11:00", end: "11:30", duration: 30 },
+//             { start: "11:30", end: "12:00", duration: 30 },
+//             { start: "15:00", end: "15:30", duration: 30 },
+//             { start: "15:30", end: "16:00", duration: 30 },
+//             { start: "16:00", end: "16:30", duration: 30 },
+//             { start: "16:30", end: "17:00", duration: 30 }
+//         ]
+//     },
+//     "D1952": { // Dr. Osvaldo Leannon - Cardiology
+//         workingDays: [2, 4, 6], // Tuesday, Thursday, Saturday
+//         timeSlots: [
+//             { start: "09:00", end: "09:45", duration: 45 },
+//             { start: "09:45", end: "10:30", duration: 45 },
+//             { start: "10:30", end: "11:15", duration: 45 },
+//             { start: "11:15", end: "12:00", duration: 45 },
+//             { start: "14:00", end: "14:45", duration: 45 },
+//             { start: "14:45", end: "15:30", duration: 45 }
+//         ]
+//     },
+//     "D6771": { // Dr. Gloria Hackett - Oncology (Tele)
+//         workingDays: [1, 3, 5], // Monday, Wednesday, Friday
+//         timeSlots: [
+//             { start: "08:00", end: "09:00", duration: 60 },
+//             { start: "09:00", end: "10:00", duration: 60 },
+//             { start: "10:00", end: "11:00", duration: 60 },
+//             { start: "13:00", end: "14:00", duration: 60 },
+//             { start: "14:00", end: "15:00", duration: 60 },
+//             { start: "15:00", end: "16:00", duration: 60 }
+//         ]
+//     }
+// };
 
 // Sample bookings (to track which slots are taken)
 // Format: "doctorID-date-time" => booking details
@@ -225,6 +227,16 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+// Normalize doctor names so query variants like "Dr.", "DR", extra spaces, etc. still match.
+function normalizeDoctorName(name) {
+    if (!name) return '';
+    return String(name)
+        .toLowerCase()
+        .replace(/\./g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 // Utility function to check if slot is booked
 function isSlotBooked(doctorID, date, time) {
     const bookingKey = `${doctorID}-${date}-${time}`;
@@ -249,8 +261,9 @@ app.get('/doctors/availability/slots', (req, res) => {
         }
         
         if (doctorName) {
-            matchingDoctors = matchingDoctors.filter(d => 
-                d.doctorName.toLowerCase().includes(doctorName.toLowerCase())
+            const normalizedQuery = normalizeDoctorName(doctorName);
+            matchingDoctors = matchingDoctors.filter(d =>
+                normalizeDoctorName(d.doctorName).includes(normalizedQuery)
             );
         }
         
