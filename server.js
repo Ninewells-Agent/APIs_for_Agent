@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const availabilitySchedule = require('./availabilitySchedule.generated');
-const doctors = require('./Doctor List.json')
+const doctors = require('./Doctor List.json');
+const { createEvent, getEventsForDoctorOnDate } = require('./googleCalendar');
 
 // Middleware
 app.use(express.json());
@@ -186,14 +188,9 @@ app.use(express.json());
 //     }
 // };
 
-// Sample bookings (to track which slots are taken)
-// Format: "doctorID-date-time" => booking details
-const bookings = {
-    "D7924-2026-02-16-08:00": { patientName: "John Doe", status: "confirmed" },
-    "D7924-2026-02-16-09:00": { patientName: "Jane Smith", status: "confirmed" },
-    "D7619-2026-02-16-09:00": { patientName: "Bob Johnson", status: "confirmed" },
-    "D1952-2026-02-17-09:00": { patientName: "Alice Brown", status: "confirmed" }
-};
+// Google Calendar is the source of truth for bookings.
+// No in-memory storage — conflicts are checked live against the Calendar API.
+const bookings = {};
 
 // Utility function to parse date
 function parseDate(dateString) {
@@ -412,40 +409,151 @@ app.get('/doctors/availability/summary', (req, res) => {
     });
 });
 
-// POST /doctors/availability/book - Book a slot (for testing purposes)
-app.post('/doctors/availability/book', (req, res) => {
-    const { doctorID, date, time, patientName } = req.body;
-    
+// ── Time helpers ──────────────────────────────────────────────────────────────
+function timeToMins(t) {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+}
+function minsToTime(mins) {
+    return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+// POST /doctors/availability/book
+// Source of truth: Google Calendar (no in-memory storage).
+// Flow: fetch doctor's events for the date → check 30-min overlap → create event.
+app.post('/doctors/availability/book', async (req, res) => {
+    console.log('Booking body: ', req.body);
+
+    const {
+        doctorID, doctorName, date, time,
+        patientName, age, gender, contactNo, email, nic
+    } = req.body;
+
+    // ── Validate required fields ───────────────────────────────────────────
     if (!doctorID || !date || !time || !patientName) {
-        return res.status(400).json({ 
-            error: 'Missing required fields: doctorID, date, time, patientName' 
+        return res.status(400).json({
+            error: 'Missing required fields: doctorID, date, time, patientName'
         });
     }
-    
-    const bookingKey = `${doctorID}-${date}-${time}`;
-    
-    if (bookings[bookingKey]) {
-        return res.status(409).json({ 
-            error: 'This slot is already booked',
-            slot: { doctorID, date, time }
+
+    const SLOT_DURATION_MINS = 30;
+    const requestedStart     = timeToMins(time);
+    const requestedEnd       = requestedStart + SLOT_DURATION_MINS;
+    const endTime            = minsToTime(requestedEnd);
+
+    // ── Fetch existing bookings from Google Calendar ───────────────────────
+    let existingEvents;
+    try {
+        existingEvents = await getEventsForDoctorOnDate(doctorID, date);
+        console.log(`Found ${existingEvents.length} existing event(s) for ${doctorID} on ${date}`);
+    } catch (calErr) {
+        console.error('Failed to fetch calendar events for conflict check:', calErr.message);
+        return res.status(500).json({
+            error: 'Unable to verify slot availability. Please try again.'
         });
     }
-    
-    bookings[bookingKey] = { 
-        patientName, 
-        status: 'confirmed',
-        bookedAt: new Date().toISOString()
-    };
-    
-    res.status(201).json({ 
-        message: 'Booking confirmed',
-        booking: {
-            bookingKey,
+
+    // ── 30-minute overlap check against live calendar events ──────────────
+    // Google Calendar returns dateTime like "2026-04-07T10:00:00+05:30"
+    // We extract HH:MM directly from characters 11-16 of that string.
+    const conflict = existingEvents.find(evt => {
+        const evStartStr = evt.start?.dateTime;
+        const evEndStr   = evt.end?.dateTime;
+        if (!evStartStr || !evEndStr) return false;
+
+        const evStartMins = timeToMins(evStartStr.substring(11, 16));
+        const evEndMins   = timeToMins(evEndStr.substring(11, 16));
+
+        // Overlap: existing starts before requested ends AND existing ends after requested starts
+        return evStartMins < requestedEnd && evEndMins > requestedStart;
+    });
+
+    if (conflict) {
+        const cStart = conflict.start.dateTime.substring(11, 16);
+        const cEnd   = conflict.end.dateTime.substring(11, 16);
+        return res.status(409).json({
+            error   : 'This time slot is not available — the doctor already has a booking that overlaps.',
+            conflict: {
+                doctorID,
+                date,
+                existingBooking: `${cStart} - ${cEnd}`,
+                requestedSlot  : `${time} - ${endTime}`
+            }
+        });
+    }
+    // 
+
+    // ── Create Google Calendar Event ───────────────────────────────────────
+    const TIME_ZONE    = 'Asia/Colombo';
+    const startISO     = `${date}T${time}:00`;
+    const endISO       = `${date}T${endTime}:00`;
+    const eventSummary = `Appointment: ${patientName} with ${doctorName || doctorID}`;
+
+    const eventDescription = [
+        'NINEWELLS HOSPITAL',
+        'APPOINTMENT CONFIRMATION',
+        '-----------------------------------------------',
+        '',
+        'PATIENT DETAILS',
+        `  Name        : ${patientName}`,
+        `  Age         : ${age       ?? 'N/A'}`,
+        `  Gender      : ${gender    ?? 'N/A'}`,
+        `  Contact No. : ${contactNo ?? 'N/A'}`,
+        `  Email       : ${email     ?? 'N/A'}`,
+        `  NIC         : ${nic       ?? 'N/A'}`,
+        '',
+        'DOCTOR DETAILS',
+        `  Doctor      : ${doctorName || doctorID}`,
+        `  Doctor ID   : ${doctorID}`,
+        '',
+        'APPOINTMENT DETAILS',
+        `  Date        : ${date}`,
+        `  Time        : ${time} - ${endTime}`,
+        `  Duration    : 30 minutes`,
+        '',
+        '-----------------------------------------------',
+        `Booked on : ${new Date().toLocaleString('en-LK', { timeZone: TIME_ZONE })}`,
+        '',
+        'This is a system-generated confirmation. Please do not reply to this event.'
+    ].join('\n');
+
+    let calendarEvent;
+    try {
+        calendarEvent = await createEvent({
+            summary            : eventSummary,
+            description        : eventDescription,
+            startTime          : startISO,
+            endTime            : endISO,
+            timeZone           : TIME_ZONE,
+            extendedProperties : { doctorID }   // enables per-doctor conflict lookup
+        });
+        console.log('Google Calendar event created:', calendarEvent.id);
+    } catch (calErr) {
+        console.error('Google Calendar event creation failed:', calErr.message);
+        // Calendar IS the source of truth — if creation fails, the booking did not happen.
+        return res.status(500).json({
+            error  : 'Slot is available but calendar booking failed. Please try again.',
+            details: calErr.message
+        });
+    }
+    // 
+
+    res.status(201).json({
+        message : 'Booking confirmed',
+        booking : {
             doctorID,
+            doctorName : doctorName || doctorID,
             date,
-            time,
+            startTime  : time,
+            endTime,
             patientName,
-            status: 'confirmed'
+            age, gender, contactNo, email, nic,
+            status     : 'confirmed'
+        },
+        calendarEvent: {
+            eventId  : calendarEvent.id,
+            htmlLink : calendarEvent.htmlLink
         }
     });
 });
